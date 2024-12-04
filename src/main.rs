@@ -23,7 +23,6 @@ async fn main() {
     info!("starting up opulens");
 
     let root_router = Router::new()
-        .route("/", get(get_root))
         .route("/user", post(create_user))
         .route("/upload", post(upload));
 
