@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use axum::extract::multipart::Multipart;
 use axum::extract::State;
-use axum::{extract::multipart::Field, http::StatusCode};
+use axum::http::StatusCode;
 use chrono::Utc;
 use tokio::sync::RwLock;
 use tracing::{event, Level};

@@ -1,7 +1,7 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::{Error, Uuid as _Uuid};
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Deserialize)]
 pub struct Uuid(pub _Uuid);
 
 impl Serialize for Uuid {
@@ -29,5 +29,11 @@ impl Uuid {
     pub fn parse_str(input: &str) -> Result<Uuid, Error> {
         let _uuid = _Uuid::parse_str(input)?;
         Ok(Self(_uuid))
+    }
+}
+
+impl From<Uuid> for bson::Uuid {
+    fn from(value: Uuid) -> Self {
+        Self::from(value.0)
     }
 }

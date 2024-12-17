@@ -1,4 +1,4 @@
-use axum::extract::multipart::{Field, MultipartError};
+use axum::extract::multipart::Field;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -35,7 +35,7 @@ impl Upload {
 
 #[derive(Debug)]
 pub enum FileError {
-    MultipartError(MultipartError),
+    MultipartError,
     MissingName,
     MissingContentType,
 
@@ -52,7 +52,7 @@ impl UploadFile {
     pub async fn from_field(field: Field<'_>) -> Result<Self, FileError> {
         let file_name = field.file_name().ok_or_else(|| FileError::MissingName)?.to_string();
         let content_type = field.content_type().ok_or_else(|| FileError::MissingContentType)?.to_string();
-        let content = field.bytes().await.map_err(|e| FileError::MultipartError(e))?;
+        let content = field.bytes().await.map_err(|_e| FileError::MultipartError)?;
 
         Ok(Self {
             content,

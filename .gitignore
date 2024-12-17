@@ -32,3 +32,7 @@ ehthumbs.db
 # OS-specific files
 *.bak
 *.swp
+
+# Bind mounts for docker
+docker/mongodb/data/
+**/.env

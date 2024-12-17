@@ -1,0 +1,4 @@
+log_config = "log.toml"
+
+[mongodb]
+connection_uri = 'mongodb://opulens:Lx!g52&ukgKF@localhost:27017/opulens?connectTimeoutMS=5&serverSelectionTimeoutMS=5000'

@@ -1,0 +1,6 @@
+[book]
+authors = ["Alexander Vandenbulcke"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Opulens"

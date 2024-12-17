@@ -1,0 +1,16 @@
+[appenders.console]
+kind = "console"
+
+[appenders.file]
+kind = "file"
+path = "log/output.log"
+encoder.pattern = "{d} - {l} - {m}{n}"
+
+[root]
+level = "info"
+appenders = ["console", "file"]
+
+[loggers.opulens]
+level = "debug"
+appenders = ["console", "file"]
+additive = false

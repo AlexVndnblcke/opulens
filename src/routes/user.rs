@@ -1,21 +1,24 @@
 use std::sync::Arc;
 
-use tracing::{event, instrument, Level};
 use axum::{
+    debug_handler,
     extract::{Path, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
-    debug_handler,
 };
+use log::{debug, info, warn};
 
 use tokio::sync::RwLock;
 
-use crate::{uuid::Uuid, Context};
+use crate::{
+    service::{DataAccessService, Identify},
+    uuid::Uuid,
+    Context,
+};
 
-use serde::Deserialize;
 use crate::models::user::User;
-
+use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
 pub struct NewUser {
@@ -24,51 +27,73 @@ pub struct NewUser {
     // TODO: add hashed and salted password, bcrypt module?
 }
 
-
 #[debug_handler]
-#[instrument]
 pub async fn create_user(
     State(state): State<Arc<RwLock<Context>>>,
     Json(payload): Json<NewUser>,
-) -> (StatusCode, Json<User>) {
-
+) -> Response {
     let new_id = Uuid::new_v4();
-    // insert your application logic here
-    let user = User::new(
-        new_id,
-        payload.username,
-        payload.email_address,
-    );
+    let user = User::new(new_id, payload.username, payload.email_address);
 
     let mut state_write_lock = state.write().await;
-    state_write_lock.add_user(user.clone()).await;
-    event!(Level::INFO, "new user {:?} is added to the user set", user);
+    if let Err(message) = state_write_lock.data_service.create(&user).await {
+        return (StatusCode::INTERNAL_SERVER_ERROR, message).into_response();
+    }
+    info!("new user {:?} is added to the user set", user);
 
     // this will be converted into a JSON response
     // with a status code of `201 Created`
-    (StatusCode::CREATED, Json(user))
+    (StatusCode::CREATED, Json(user)).into_response()
 }
 
+#[debug_handler]
+pub async fn update_user(
+    State(state): State<Arc<RwLock<Context>>>,
+    Json(user): Json<User>,
+) -> Response {
+    let mut state_write_lock = state.write().await;
+
+    if let Err(message) = state_write_lock.data_service.update(&user).await {
+        return (StatusCode::INTERNAL_SERVER_ERROR, message).into_response();
+    }
+    info!("user {:?} is updated in the user set", &user.id());
+
+    // this will be converted into a JSON response
+    // with a status code of `204 No content`
+    StatusCode::NO_CONTENT.into_response()
+}
 
 #[debug_handler]
-#[instrument]
-pub async fn get_info(State(state): State<Arc<RwLock<Context>>>, Path(id): Path<String>) -> Response {
-    event!(Level::DEBUG, "retrieving info for user with id {:?}", id);
-    let uuid = match Uuid::parse_str(&id) {
+pub async fn get_user(
+    State(state): State<Arc<RwLock<Context>>>,
+    Path(id): Path<String>,
+) -> Response {
+    let state_write_lock = state.write().await;
+
+    let id: Uuid = match Uuid::parse_str(&id) {
         Ok(uuid) => uuid,
-        Err(error) => {
-            event!(Level::WARN, "user info retrieval attempt for invalid user id format");
-            return (StatusCode::BAD_REQUEST, format!("input id is not valid: {:?}", error)).into_response();
+        Err(e) => {
+            warn!(
+                "attempt to get user with invalid id format, error: {:?}",
+                e.to_string()
+            );
+            return (StatusCode::BAD_REQUEST, "Invalid user id format").into_response();
         }
     };
 
-    let state = state.write().await;
-    if let Some(user_mutex) = state.get_user(uuid).await {
-        event!(Level::INFO, "user info retrieval for id {:?}", id);
-        let user = user_mutex.lock().await;
-        (StatusCode::OK, Json(user.clone())).into_response()
-    } else {
-        event!(Level::INFO, "user with id {:?} not found", id);
-        (StatusCode::NOT_FOUND, format!("User with id {} is not found", id)).into_response()
-    }
+    let user = match state_write_lock.data_service.read(&id).await {
+        Err(message) => return (StatusCode::INTERNAL_SERVER_ERROR, message).into_response(),
+        Ok(None) => {
+            debug!("attempt to retrieve non-existing user {:?}", &id);
+            return (
+                StatusCode::NOT_FOUND,
+                format!("No user found for id {:?}", &id),
+            )
+                .into_response();
+        }
+        Ok(Some(user)) => user,
+    };
+    info!("user {:?} is updated in the user set", &id);
+
+    (StatusCode::OK, Json::<User>::from(user)).into_response()
 }
